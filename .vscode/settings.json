@@ -1,0 +1,12 @@
+{
+  // Configuración simple y funcional de Rust
+  "rust-analyzer.checkOnSave.enable": true,
+  "rust-analyzer.checkOnSave.command": "check",
+  "rust-analyzer.diagnostics.enable": true,
+  // Configuración básica de formateo
+  "editor.formatOnSave": true,
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.formatOnSave": true
+  }
+}

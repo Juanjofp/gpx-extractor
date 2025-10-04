@@ -1,0 +1,14 @@
+# Configuración de Clippy para mejores prácticas
+
+# Habilitar lints más estrictos
+avoid-breaking-exported-api = false
+msrv = "1.70.0"                     # Minimum Supported Rust Version
+
+# Configuraciones específicas
+too-many-arguments-threshold = 7
+type-complexity-threshold = 250
+single-char-binding-names-threshold = 4
+trivial-copy-size-limit = 128
+
+# Asegurar que los warnings de dead code aparezcan
+warn-on-all-wildcard-imports = false

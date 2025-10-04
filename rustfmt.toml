@@ -1,0 +1,27 @@
+# Configuración de rustfmt para formateo consistente
+# Versión compatible con rustfmt estable
+
+# Estilo general
+edition = "2021"
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+
+# Imports
+reorder_imports = true
+
+# Funciones y estructuras
+fn_params_layout = "Tall"
+
+# Formateo de código
+use_small_heuristics = "Default"
+newline_style = "Unix"
+remove_nested_parens = true
+
+# Arrays y estructuras
+match_block_trailing_comma = false
+
+# Para usar características avanzadas, instala rustfmt nightly:
+# rustup toolchain install nightly
+# rustup component add rustfmt --toolchain nightly
+# cargo +nightly fmt
