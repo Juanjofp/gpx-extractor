@@ -7,9 +7,9 @@ pub struct Point {
     pub lat: f64,
     #[serde(rename = "@lon")]
     pub lon: f64,
-    #[serde(rename = "ele")]
+    #[serde(rename = "ele", skip_serializing_if = "Option::is_none")]
     pub elevation: Option<f64>,
-    #[serde(rename = "time")]
+    #[serde(rename = "time", skip_serializing_if = "Option::is_none")]
     pub time: Option<DateTime<Utc>>,
 }
 
@@ -56,6 +56,7 @@ pub fn haversine_distance(p1: &Point, p2: &Point) -> f64 {
 
     let a = (delta_lat / 2.0).sin().powi(2)
         + lat1_rad.cos() * lat2_rad.cos() * (delta_lon / 2.0).sin().powi(2);
+
     let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
 
     R * c

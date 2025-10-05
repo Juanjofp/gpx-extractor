@@ -65,7 +65,7 @@ impl Default for TrackSegment {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Track {
-    #[serde(rename = "name")]
+    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(rename = "trkseg", default)]
     pub segments: Vec<TrackSegment>,

@@ -1,16 +1,30 @@
 use crate::gpx::{point::Point, track::Track, waypoint::Waypoint};
-use quick_xml::de::from_str;
+use quick_xml::{de::from_str, se::to_string};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename = "gpx")]
 pub struct GpxRoot {
+    #[serde(rename = "@version", default = "default_version")]
+    pub version: String,
+    #[serde(rename = "@creator", default = "default_creator")]
+    pub creator: String,
     #[serde(rename = "trk", default)]
     pub tracks: Vec<Track>,
     #[serde(rename = "wpt", default)]
     pub waypoints: Vec<Waypoint>,
 }
 
-#[derive(Debug)]
+fn default_version() -> String {
+    "1.1".to_string()
+}
+
+fn default_creator() -> String {
+    "gpx-extractor".to_string()
+}
+
+#[derive(Debug, Clone)]
 pub struct Gpx {
     pub tracks: Vec<Track>,
     pub waypoints: Vec<Waypoint>,
@@ -113,11 +127,53 @@ impl Gpx {
             .map(|waypoint| waypoint.display_name())
             .collect()
     }
+
+    /// Convierte el GPX a string XML
+    pub fn to_xml(&self) -> String {
+        let gpx_root = GpxRoot {
+            version: default_version(),
+            creator: default_creator(),
+            tracks: self.tracks.clone(),
+            waypoints: self.waypoints.clone(),
+        };
+
+        match to_string(&gpx_root) {
+            Ok(xml) => format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n{}", xml),
+            Err(e) => {
+                eprintln!("Error serializing GPX to XML: {}", e);
+                String::new()
+            }
+        }
+    }
+
+    /// Guarda el GPX en un archivo
+    pub fn save_to_file(&self, path: &str) -> Result<(), std::io::Error> {
+        use std::fs;
+        fs::write(path, self.to_xml())
+    }
 }
 
 impl Default for Gpx {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl fmt::Display for Gpx {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.to_xml())
+    }
+}
+
+impl Into<String> for Gpx {
+    fn into(self) -> String {
+        self.to_xml()
+    }
+}
+
+impl Into<String> for &Gpx {
+    fn into(self) -> String {
+        self.to_xml()
     }
 }
 
@@ -298,5 +354,107 @@ mod tests {
         assert!(summary.contains("Distance: 25.50 km"));
         assert!(summary.contains("Elevation: 100.0m - 300.0m"));
         assert!(summary.contains("gain: 200.0m"));
+    }
+
+    #[test]
+    fn test_gpx_to_xml() {
+        let mut gpx = Gpx::new();
+        let mut track = Track::with_name("Test Track".to_string());
+        let segment = TrackSegment::with_points(vec![
+            Point::new(40.7128, -74.0060),
+            Point::new(40.7589, -73.9851),
+        ]);
+        track.add_segment(segment);
+        gpx.add_track(track);
+
+        let xml_output = gpx.to_xml();
+
+        assert!(xml_output.contains("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"));
+        assert!(xml_output.contains("<gpx"));
+        assert!(xml_output.contains("version=\"1.1\""));
+        assert!(xml_output.contains("creator=\"gpx-extractor\""));
+        assert!(xml_output.contains("Test Track"));
+        assert!(xml_output.contains("40.7128"));
+        assert!(xml_output.contains("-74.006"));
+    }
+
+    #[test]
+    fn test_gpx_display_trait() {
+        let mut gpx = Gpx::new();
+        let mut track = Track::with_name("Display Test".to_string());
+        let segment = TrackSegment::with_points(vec![Point::new(1.0, 2.0)]);
+        track.add_segment(segment);
+        gpx.add_track(track);
+
+        let display_output = format!("{}", gpx);
+        assert!(display_output.contains("Display Test"));
+        assert!(display_output.contains("<?xml"));
+    }
+
+    #[test]
+    fn test_gpx_into_string() {
+        let mut gpx = Gpx::new();
+        let mut track = Track::with_name("Into Test".to_string());
+        let segment = TrackSegment::with_points(vec![Point::new(3.0, 4.0)]);
+        track.add_segment(segment);
+        gpx.add_track(track);
+
+        let string_output: String = gpx.into();
+        assert!(string_output.contains("Into Test"));
+        assert!(string_output.contains("<?xml"));
+    }
+
+    #[test]
+    fn test_gpx_roundtrip() {
+        let original_xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+        <gpx version="1.1" creator="test">
+            <trk>
+                <name>Test Track</name>
+                <trkseg>
+                    <trkpt lat="40.7128" lon="-74.0060">
+                        <ele>10.5</ele>
+                    </trkpt>
+                </trkseg>
+            </trk>
+            <wpt lat="40.7589" lon="-73.9851">
+                <name>Test Waypoint</name>
+                <ele>15.0</ele>
+            </wpt>
+        </gpx>"#;
+
+        let gpx: Gpx = Gpx::from(original_xml);
+        let serialized_xml = gpx.to_xml();
+        let reparsed_gpx: Gpx = Gpx::from(serialized_xml.as_str());
+
+        assert_eq!(gpx.tracks.len(), reparsed_gpx.tracks.len());
+        assert_eq!(gpx.waypoints.len(), reparsed_gpx.waypoints.len());
+        assert_eq!(gpx.total_points(), reparsed_gpx.total_points());
+    }
+
+    #[test]
+    fn test_gpx_save_to_file() {
+        use std::fs;
+        use std::path::Path;
+
+        let mut gpx = Gpx::new();
+        let mut track = Track::with_name("File Test".to_string());
+        let segment = TrackSegment::with_points(vec![Point::new(5.0, 6.0)]);
+        track.add_segment(segment);
+        gpx.add_track(track);
+
+        let test_file = "/tmp/test_gpx_output.gpx";
+
+        // Guardar archivo
+        let result = gpx.save_to_file(test_file);
+        assert!(result.is_ok());
+
+        // Verificar que el archivo existe y tiene contenido
+        assert!(Path::new(test_file).exists());
+        let file_content = fs::read_to_string(test_file).unwrap();
+        assert!(file_content.contains("File Test"));
+        assert!(file_content.contains("<?xml"));
+
+        // Limpiar archivo de prueba
+        let _ = fs::remove_file(test_file);
     }
 }

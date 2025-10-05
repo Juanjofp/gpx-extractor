@@ -7,11 +7,11 @@ pub struct Waypoint {
     pub lat: f64,
     #[serde(rename = "@lon")]
     pub lon: f64,
-    #[serde(rename = "name")]
+    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    #[serde(rename = "ele")]
+    #[serde(rename = "ele", skip_serializing_if = "Option::is_none")]
     pub elevation: Option<f64>,
-    #[serde(rename = "time")]
+    #[serde(rename = "time", skip_serializing_if = "Option::is_none")]
     pub time: Option<DateTime<Utc>>,
 }
 
