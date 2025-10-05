@@ -69,7 +69,7 @@ fn main() {
 
     // Test de roundtrip
     println!("\n🔄 Test de Roundtrip:");
-    let reparsed_gpx: Gpx = Gpx::from(xml_string.as_str());
+    let reparsed_gpx = Gpx::try_from_str(&xml_string).expect("Error en roundtrip parsing");
     let reparsed_stats = reparsed_gpx.statistics();
 
     println!(

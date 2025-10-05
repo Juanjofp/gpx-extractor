@@ -64,9 +64,25 @@ GPX
 
 ```rust
 use gpx_extractor::{Gpx, Track, TrackSegment, Point, Waypoint};
+use std::convert::TryFrom;
 
-// Crear desde XML
-let gpx = Gpx::from(xml_content);
+// Método 1: Usando try_from_str (método específico)
+let gpx = match Gpx::try_from_str(xml_content) {
+    Ok(gpx) => gpx,
+    Err(e) => {
+        eprintln!("Error parsing GPX: {}", e);
+        return;
+    }
+};
+
+// Método 2: Usando TryFrom trait (más idiomático en Rust)
+let gpx = match Gpx::try_from(xml_content) {
+    Ok(gpx) => gpx,
+    Err(e) => {
+        eprintln!("Error parsing GPX: {}", e);
+        return;
+    }
+};
 
 // Obtener estadísticas
 let stats = gpx.statistics();
@@ -93,7 +109,7 @@ let xml_into: String = gpx.into();       // Usando Into<String>
 gpx.save_to_file("mi_ruta.gpx").expect("Error guardando archivo");
 
 // Roundtrip: XML → GPX → XML
-let reparsed_gpx: Gpx = Gpx::from(&xml_string);
+let reparsed_gpx = Gpx::try_from_str(&xml_string).expect("Error en roundtrip");
 assert_eq!(gpx.total_points(), reparsed_gpx.total_points());
 ```
 
@@ -102,6 +118,105 @@ assert_eq!(gpx.total_points(), reparsed_gpx.total_points());
 ```bash
 # Ejecutar demo de conversión GPX→XML
 cargo run --example gpx_to_xml_demo
+```
+
+## ⚠️ Manejo de Errores
+
+La librería proporciona dos métodos idiomáticos para manejo de errores explícito:
+
+### Método 1: `try_from_str` (método específico)
+
+```rust
+match Gpx::try_from_str(xml_content) {
+    Ok(gpx) => {
+        println!("GPX cargado correctamente con {} tracks", gpx.tracks.len());
+        // Procesar el GPX...
+    },
+    Err(e) => {
+        eprintln!("Error parsing GPX: {}", e);
+        // Manejar el error apropiadamente
+    }
+}
+```
+
+### Método 2: `TryFrom` trait (más idiomático)
+
+```rust
+use std::convert::TryFrom;
+
+match Gpx::try_from(xml_content) {
+    Ok(gpx) => {
+        println!("GPX cargado correctamente con {} tracks", gpx.tracks.len());
+        // Procesar el GPX...
+    },
+    Err(e) => {
+        eprintln!("Error parsing GPX: {}", e);
+        // Manejar el error apropiadamente
+    }
+}
+
+// También funciona con el operador ?
+fn load_gpx(xml: &str) -> Result<Gpx, quick_xml::DeError> {
+    let gpx = Gpx::try_from(xml)?;
+    Ok(gpx)
+}
+```
+
+### Beneficios del Manejo Explícito de Errores
+
+- **🔒 Seguridad:** No hay métodos que silenciosamente devuelvan estructuras vacías
+- **🐛 Depuración:** Los errores contienen información específica sobre qué falló
+- **🎯 Precisión:** El llamador siempre sabe si el parsing fue exitoso o no
+- **📊 Monitoreo:** Puedes registrar, contar y manejar errores de parsing apropiadamente
+
+```rust
+// ❌ Antes: No sabías si el GPX estaba realmente vacío o hubo un error
+let gpx = Gpx::from(possibly_invalid_xml);
+if gpx.is_empty() {
+    // ¿Era un GPX vacío válido o un error de parsing?
+}
+
+// ✅ Ahora: Manejo explícito y claro
+use std::convert::TryFrom;
+
+match Gpx::try_from(xml_content) {
+    Ok(gpx) if gpx.is_empty() => println!("GPX válido pero vacío"),
+    Ok(gpx) => println!("GPX cargado con {} tracks", gpx.tracks.len()),
+    Err(e) => {
+        log::error!("Error parsing GPX: {}", e);
+        // Manejar error apropiadamente
+    }
+}
+```
+
+### 💡 Mejores Prácticas
+
+#### Cuándo usar cada método:
+
+- **`try_from_str()`**: Cuando quieres ser explícito sobre el parsing de strings
+- **`TryFrom` trait**: Más idiomático, funciona bien con genéricos y permite usar el operador `?`
+
+```rust
+use std::convert::TryFrom;
+
+// ✅ Excelente para manejo de errores con ?
+fn process_gpx_file(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let content = std::fs::read_to_string(path)?;
+    let gpx = Gpx::try_from(content.as_str())?;
+
+    println!("Procesando GPX con {} tracks", gpx.tracks.len());
+    Ok(())
+}
+
+// ✅ Funciona bien con código genérico
+fn parse_from_string<T>(s: &str) -> Result<T, T::Error>
+where
+    T: TryFrom<&str>,
+{
+    T::try_from(s)
+}
+
+let gpx: Gpx = parse_from_string(xml_content)?;
 ```
 
 ## 📋 Configuración de Desarrollo

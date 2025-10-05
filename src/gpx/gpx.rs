@@ -177,18 +177,22 @@ impl Into<String> for &Gpx {
     }
 }
 
-impl From<&str> for Gpx {
-    fn from(s: &str) -> Self {
-        match from_str::<GpxRoot>(s) {
-            Ok(gpx_root) => Gpx {
-                tracks: gpx_root.tracks,
-                waypoints: gpx_root.waypoints,
-            },
-            Err(e) => {
-                eprintln!("Error parsing GPX: {}", e);
-                Gpx::new()
-            }
-        }
+impl Gpx {
+    /// Intenta crear un GPX desde un string XML, devolviendo un Result
+    pub fn try_from_str(s: &str) -> Result<Self, quick_xml::DeError> {
+        let gpx_root = from_str::<GpxRoot>(s)?;
+        Ok(Gpx {
+            tracks: gpx_root.tracks,
+            waypoints: gpx_root.waypoints,
+        })
+    }
+}
+
+impl TryFrom<&str> for Gpx {
+    type Error = quick_xml::DeError;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        Self::try_from_str(s)
     }
 }
 
@@ -258,9 +262,76 @@ mod tests {
 
     #[test]
     fn test_gpx_from_empty_xml() {
-        let gpx: Gpx = Gpx::from("<gpx></gpx>");
+        let gpx = Gpx::try_from_str("<gpx></gpx>").unwrap();
         assert!(gpx.tracks.is_empty());
         assert!(gpx.waypoints.is_empty());
+    }
+
+    #[test]
+    fn test_gpx_try_from_str_success() {
+        let xml = r#"<gpx><trk><name>Test</name></trk></gpx>"#;
+        let result = Gpx::try_from_str(xml);
+        assert!(result.is_ok());
+        let gpx = result.unwrap();
+        assert_eq!(gpx.tracks.len(), 1);
+    }
+
+    #[test]
+    fn test_gpx_try_from_str_error() {
+        let invalid_xml = "not valid xml at all";
+        let result = Gpx::try_from_str(invalid_xml);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_gpx_error_handling_preserves_information() {
+        let malformed_xml = "<gpx><trk><invalid></trk></gpx>";
+        let result = Gpx::try_from_str(malformed_xml);
+
+        match result {
+            Ok(_) => panic!("Expected error for malformed XML"),
+            Err(e) => {
+                // Verificamos que el error contiene información útil
+                let error_string = format!("{}", e);
+                assert!(!error_string.is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn test_gpx_try_from_trait_success() {
+        use std::convert::TryFrom;
+        let xml = r#"<gpx><trk><name>TryFrom Test</name></trk></gpx>"#;
+        let gpx = Gpx::try_from(xml).unwrap();
+        assert_eq!(gpx.tracks.len(), 1);
+        assert_eq!(gpx.tracks[0].name.as_ref().unwrap(), "TryFrom Test");
+    }
+
+    #[test]
+    fn test_gpx_try_from_trait_error() {
+        use std::convert::TryFrom;
+        let invalid_xml = "not valid xml at all";
+        let result = Gpx::try_from(invalid_xml);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_gpx_try_from_trait_vs_try_from_str() {
+        use std::convert::TryFrom;
+        let xml = r#"<gpx><trk><name>Comparison Test</name></trk></gpx>"#;
+
+        // Ambos métodos deben dar el mismo resultado
+        let gpx1 = Gpx::try_from_str(xml).unwrap();
+        let gpx2 = Gpx::try_from(xml).unwrap();
+
+        assert_eq!(gpx1.tracks.len(), gpx2.tracks.len());
+        assert_eq!(gpx1.tracks[0].name, gpx2.tracks[0].name);
+    }
+    #[test]
+    fn test_gpx_from_invalid_xml_returns_error() {
+        // Ahora debe devolver un error en lugar de un GPX vacío
+        let result = Gpx::try_from_str("invalid xml");
+        assert!(result.is_err());
     }
 
     #[test]
@@ -280,7 +351,7 @@ mod tests {
             </trk>
         </gpx>"#;
 
-        let gpx: Gpx = Gpx::from(xml);
+        let gpx = Gpx::try_from_str(xml).unwrap();
         assert_eq!(gpx.tracks.len(), 1);
         assert_eq!(gpx.tracks[0].segments.len(), 1);
         assert_eq!(gpx.tracks[0].segments[0].points.len(), 2);
@@ -422,9 +493,9 @@ mod tests {
             </wpt>
         </gpx>"#;
 
-        let gpx: Gpx = Gpx::from(original_xml);
+        let gpx = Gpx::try_from_str(original_xml).unwrap();
         let serialized_xml = gpx.to_xml();
-        let reparsed_gpx: Gpx = Gpx::from(serialized_xml.as_str());
+        let reparsed_gpx = Gpx::try_from_str(&serialized_xml).unwrap();
 
         assert_eq!(gpx.tracks.len(), reparsed_gpx.tracks.len());
         assert_eq!(gpx.waypoints.len(), reparsed_gpx.waypoints.len());
