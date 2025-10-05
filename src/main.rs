@@ -1,6 +1,7 @@
 use gpx_extractor::Gpx;
+use std::path::PathBuf;
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Read file content from command line argument
     let args: Vec<String> = std::env::args().collect();
 
@@ -13,25 +14,59 @@ fn main() {
 
     println!("📍 Reading GPX files from directory: {}", gpx_directory);
 
-    // for entry in std::fs::read_dir(gpx_directory).unwrap() {
-    //     let entry = entry.unwrap();
-    //     let path = entry.path();
-
-    //     if path.extension().map(|e| e == "gpx").unwrap_or(false) {
-    //         print_gpx_info(path.to_str().unwrap());
-    //     }
-    // }
-
-    let files = std::fs::read_dir(gpx_directory)
-        .unwrap()
-        .map(|res| res.map(|e| e.path()))
-        .filter(|path| {
-            path.as_ref()
-                .map(|p| p.extension().map(|e| e == "gpx").unwrap_or(false))
-                .unwrap_or(false)
+    let files: Vec<PathBuf> = std::fs::read_dir(gpx_directory)?
+        .filter_map(|entry| match entry {
+            Ok(dir_entry) => {
+                let path = dir_entry.path();
+                if path.extension().map_or(false, |ext| ext == "gpx") {
+                    Some(Ok(path))
+                } else {
+                    None
+                }
+            }
+            Err(e) => Some(Err(e)),
         })
-        .collect::<Result<Vec<_>, std::io::Error>>()
-        .unwrap();
+        .collect::<Result<Vec<_>, std::io::Error>>()?;
+
+    println!("Found {} GPX files", files.len());
+
+    // Obtener vector de objetos Gpx
+    let gpx_items: Vec<Gpx> = files
+        .iter()
+        .filter_map(
+            |file_path| match load_gpx_file(file_path.to_str().unwrap()) {
+                Ok(gpx) => Some(gpx),
+
+                Err(e) => {
+                    eprintln!("Error loading {}: {}", file_path.display(), e);
+                    None
+                }
+            },
+        )
+        .collect();
+
+    println!("Successfully loaded {} GPX files", gpx_items.len());
+
+    // // Print info for each GPX file
+    // for (i, gpx) in gpx_items.iter().enumerate() {
+    //     println!("\n=== GPX File {} ===", i + 1);
+    //     print_gpx_info(gpx);
+    // }
+    // Print info for each GPX file
+    // gpx_items.iter().enumerate().for_each(|(i, gpx)| {
+    //     println!("\n=== GPX File {} ===", i + 1);
+    //     print_gpx_info(gpx);
+    // });
+
+    // Sumar todos los km de todos los archivos GPX
+    let total_distance: f64 = gpx_items.iter().map(|gpx| gpx.total_distance_km()).sum();
+
+    println!(
+        "\n📏 Total distance across all GPX files: {:.2} km",
+        total_distance
+    );
+
+    Ok(())
 }
 
 fn load_gpx_file(gpx_file_name: &str) -> Result<Gpx, Box<dyn std::error::Error>> {
