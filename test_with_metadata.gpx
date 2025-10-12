@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd" creator="StravaGPX" version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+ <metadata>
+  <time>2024-07-11T17:16:43Z</time>
+ </metadata>
+ <trk>
+  <name>Evening Ride</name>
+  <trkseg>
+   <trkpt lat="40.7128" lon="-74.0060">
+    <ele>10.0</ele>
+   </trkpt>
+   <trkpt lat="40.7589" lon="-73.9851">
+    <ele>15.0</ele>
+   </trkpt>
+   <trkpt lat="40.7831" lon="-73.9712">
+    <ele>20.0</ele>
+   </trkpt>
+  </trkseg>
+ </trk>
+</gpx>

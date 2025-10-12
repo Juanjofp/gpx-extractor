@@ -4,12 +4,20 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Metadata {
+    #[serde(rename = "time")]
+    pub time: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename = "gpx")]
 pub struct GpxRoot {
     #[serde(rename = "@version", default = "default_version")]
     pub version: String,
     #[serde(rename = "@creator", default = "default_creator")]
     pub creator: String,
+    #[serde(rename = "metadata")]
+    pub metadata: Option<Metadata>,
     #[serde(rename = "trk", default)]
     pub tracks: Vec<Track>,
     #[serde(rename = "wpt", default)]
@@ -28,6 +36,7 @@ fn default_creator() -> String {
 pub struct Gpx {
     pub tracks: Vec<Track>,
     pub waypoints: Vec<Waypoint>,
+    pub metadata: Option<Metadata>,
 }
 
 impl Gpx {
@@ -36,7 +45,13 @@ impl Gpx {
         Self {
             tracks: Vec::new(),
             waypoints: Vec::new(),
+            metadata: None,
         }
+    }
+
+    /// Obtiene la fecha de la metadata si existe
+    pub fn date(&self) -> Option<&str> {
+        self.metadata.as_ref()?.time.as_deref()
     }
 
     /// Obtiene todos los puntos de todos los tracks
@@ -133,6 +148,7 @@ impl Gpx {
         let gpx_root = GpxRoot {
             version: default_version(),
             creator: default_creator(),
+            metadata: self.metadata.clone(),
             tracks: self.tracks.clone(),
             waypoints: self.waypoints.clone(),
         };
@@ -184,6 +200,7 @@ impl Gpx {
         Ok(Gpx {
             tracks: gpx_root.tracks,
             waypoints: gpx_root.waypoints,
+            metadata: gpx_root.metadata,
         })
     }
 }
@@ -527,5 +544,52 @@ mod tests {
 
         // Limpiar archivo de prueba
         let _ = fs::remove_file(test_file);
+    }
+
+    #[test]
+    fn test_gpx_metadata_parsing() {
+        let xml = r#"
+        <gpx version="1.1" creator="StravaGPX">
+            <metadata>
+                <time>2024-07-11T17:16:43Z</time>
+            </metadata>
+            <trk>
+                <name>Test Track</name>
+            </trk>
+        </gpx>"#;
+
+        let gpx = Gpx::try_from_str(xml).unwrap();
+        assert!(gpx.metadata.is_some());
+        assert_eq!(gpx.date(), Some("2024-07-11T17:16:43Z"));
+    }
+
+    #[test]
+    fn test_gpx_without_metadata() {
+        let xml = r#"
+        <gpx version="1.1" creator="test">
+            <trk>
+                <name>Test Track</name>
+            </trk>
+        </gpx>"#;
+
+        let gpx = Gpx::try_from_str(xml).unwrap();
+        assert!(gpx.metadata.is_none());
+        assert_eq!(gpx.date(), None);
+    }
+
+    #[test]
+    fn test_gpx_metadata_without_time() {
+        let xml = r#"
+        <gpx version="1.1" creator="test">
+            <metadata>
+            </metadata>
+            <trk>
+                <name>Test Track</name>
+            </trk>
+        </gpx>"#;
+
+        let gpx = Gpx::try_from_str(xml).unwrap();
+        assert!(gpx.metadata.is_some());
+        assert_eq!(gpx.date(), None);
     }
 }

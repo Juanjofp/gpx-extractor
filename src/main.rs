@@ -53,10 +53,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     print_gpx_info(gpx);
     // }
     // Print info for each GPX file
-    // gpx_items.iter().enumerate().for_each(|(i, gpx)| {
-    //     println!("\n=== GPX File {} ===", i + 1);
-    //     print_gpx_info(gpx);
-    // });
+    gpx_items.iter().enumerate().for_each(|(i, gpx)| {
+        println!("\n=== GPX File {} ===", i + 1);
+        print_gpx_info(gpx);
+    });
 
     // Sumar todos los km de todos los archivos GPX
     let total_distance: f64 = gpx_items.iter().map(|gpx| gpx.total_distance_km()).sum();
@@ -80,6 +80,9 @@ fn print_gpx_info(gpx: &Gpx) {
     println!("\n🗂️  GPX Analysis:");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
+    if let Some(date) = gpx.date() {
+        println!("📅 Date: {}", date);
+    }
     println!("📊 Tracks: {}", gpx.tracks.len());
     println!("📍 Waypoints: {}", gpx.waypoints.len());
     println!("🔢 Total points: {}", gpx.total_points());
