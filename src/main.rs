@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Found {} GPX files", files.len());
 
     // Obtener vector de objetos Gpx
-    let gpx_items: Vec<Gpx> = files
+    let mut gpx_items: Vec<Gpx> = files
         .iter()
         .filter_map(
             |file_path| match load_gpx_file(file_path.to_str().unwrap()) {
@@ -45,13 +45,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .collect();
 
+    // Sort GPX items by date
+    gpx_items.sort_by(|a, b| match (a.date(), b.date()) {
+        (Some(date_a), Some(date_b)) => date_a.cmp(date_b),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => std::cmp::Ordering::Equal,
+    });
+
     println!("Successfully loaded {} GPX files", gpx_items.len());
 
-    // // Print info for each GPX file
-    // for (i, gpx) in gpx_items.iter().enumerate() {
-    //     println!("\n=== GPX File {} ===", i + 1);
-    //     print_gpx_info(gpx);
-    // }
     // Print info for each GPX file
     gpx_items.iter().enumerate().for_each(|(i, gpx)| {
         println!("\n=== GPX File {} ===", i + 1);
@@ -107,7 +110,14 @@ fn print_gpx_info(gpx: &Gpx) {
 
     if let Some((min_ele, max_ele)) = gpx.elevation_range() {
         println!("⛰️  Elevation: {:.1}m - {:.1}m", min_ele, max_ele);
-        println!("📈 Elevation gain: {:.1}m", max_ele - min_ele);
+    }
+
+    if let Some(gain) = gpx.total_elevation_gain() {
+        println!("📈 Elevation gain: {:.1}m", gain);
+    }
+
+    if let Some(loss) = gpx.total_elevation_loss() {
+        println!("📉 Elevation loss: {:.1}m", loss);
     }
 
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");

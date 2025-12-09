@@ -90,6 +90,58 @@ impl Gpx {
         ))
     }
 
+    /// Calcula la elevación acumulada positiva (ascenso total)
+    pub fn total_elevation_gain(&self) -> Option<f64> {
+        let mut total_gain = 0.0;
+        let mut has_elevation = false;
+
+        for track in &self.tracks {
+            for segment in &track.segments {
+                for window in segment.points.windows(2) {
+                    if let (Some(ele1), Some(ele2)) = (window[0].elevation, window[1].elevation) {
+                        has_elevation = true;
+                        let diff = ele2 - ele1;
+                        if diff > 0.0 {
+                            total_gain += diff;
+                        }
+                    }
+                }
+            }
+        }
+
+        if has_elevation {
+            Some(total_gain)
+        } else {
+            None
+        }
+    }
+
+    /// Calcula la elevación acumulada negativa (descenso total)
+    pub fn total_elevation_loss(&self) -> Option<f64> {
+        let mut total_loss = 0.0;
+        let mut has_elevation = false;
+
+        for track in &self.tracks {
+            for segment in &track.segments {
+                for window in segment.points.windows(2) {
+                    if let (Some(ele1), Some(ele2)) = (window[0].elevation, window[1].elevation) {
+                        has_elevation = true;
+                        let diff = ele2 - ele1;
+                        if diff < 0.0 {
+                            total_loss += diff.abs();
+                        }
+                    }
+                }
+            }
+        }
+
+        if has_elevation {
+            Some(total_loss)
+        } else {
+            None
+        }
+    }
+
     /// Cuenta el total de puntos en todos los tracks
     pub fn total_points(&self) -> usize {
         self.tracks.iter().map(|track| track.total_points()).sum()
@@ -109,6 +161,8 @@ impl Gpx {
             total_points: self.total_points(),
             total_distance_km: self.total_distance_km(),
             elevation_range: self.elevation_range(),
+            elevation_gain: self.total_elevation_gain(),
+            elevation_loss: self.total_elevation_loss(),
         }
     }
 
@@ -222,11 +276,13 @@ pub struct GpxStatistics {
     pub total_points: usize,
     pub total_distance_km: f64,
     pub elevation_range: Option<(f64, f64)>,
+    pub elevation_gain: Option<f64>,
+    pub elevation_loss: Option<f64>,
 }
 
 impl GpxStatistics {
-    /// Calcula la ganancia de elevación
-    pub fn elevation_gain(&self) -> Option<f64> {
+    /// Calcula la ganancia de elevación (diferencia min-max)
+    pub fn elevation_difference(&self) -> Option<f64> {
         self.elevation_range.map(|(min, max)| max - min)
     }
 
@@ -248,11 +304,17 @@ impl GpxStatistics {
 
         if let Some((min_ele, max_ele)) = self.elevation_range {
             summary.push_str(&format!(
-                "\n- Elevation: {:.1}m - {:.1}m (gain: {:.1}m)",
-                min_ele,
-                max_ele,
-                max_ele - min_ele
+                "\n- Elevation range: {:.1}m - {:.1}m",
+                min_ele, max_ele
             ));
+        }
+
+        if let Some(gain) = self.elevation_gain {
+            summary.push_str(&format!("\n- Elevation gain: {:.1}m", gain));
+        }
+
+        if let Some(loss) = self.elevation_loss {
+            summary.push_str(&format!("\n- Elevation loss: {:.1}m", loss));
         }
 
         summary
@@ -410,7 +472,7 @@ mod tests {
         assert_eq!(stats.total_points, 2);
         assert!(stats.total_distance_km > 0.0);
         assert_eq!(stats.elevation_range, Some((10.0, 20.0)));
-        assert_eq!(stats.elevation_gain(), Some(10.0));
+        assert_eq!(stats.elevation_difference(), Some(10.0));
     }
 
     #[test]
@@ -434,14 +496,16 @@ mod tests {
             total_points: 1000,
             total_distance_km: 25.5,
             elevation_range: Some((100.0, 300.0)),
+            elevation_gain: Some(200.0),
+            elevation_loss: Some(50.0),
         };
 
         let summary = stats.summary();
         assert!(summary.contains("Tracks: 2"));
         assert!(summary.contains("Waypoints: 3"));
         assert!(summary.contains("Distance: 25.50 km"));
-        assert!(summary.contains("Elevation: 100.0m - 300.0m"));
         assert!(summary.contains("gain: 200.0m"));
+        assert!(summary.contains("loss: 50.0m"));
     }
 
     #[test]
