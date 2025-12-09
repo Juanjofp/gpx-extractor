@@ -1,10 +1,47 @@
 [package]
 name = "gpx-extractor"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+authors = ["Juanjo <juanjofp@gmail.com>"]
+license = "MIT OR Apache-2.0"
+description = "A fast and ergonomic GPX (GPS Exchange Format) parser and builder for Rust"
+repository = "https://github.com/Juanjofp/gpx-extractor"
+documentation = "https://docs.rs/gpx-extractor"
+homepage = "https://github.com/Juanjofp/gpx-extractor"
+readme = "README.md"
+keywords = ["gpx", "gps", "geo", "parser", "xml"]
+categories = ["parsing", "encoding", "data-structures"]
+rust-version = "1.70.0"
+
+[lib]
+name = "gpx_extractor"
+path = "src/lib.rs"
+
+# Binario opcional (CLI)
+[[bin]]
+name = "gpx-cli"
+path = "src/bin/gpx-cli.rs"
+required-features = ["cli"]
 
 [dependencies]
 quick-xml = { version = "0.31", features = ["serialize"] }
 serde = { version = "1.0", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 itertools = "0.14.0"
+
+# Dependencias opcionales para CLI
+clap = { version = "4.5", features = ["derive"], optional = true }
+colored = { version = "2.1", optional = true }
+
+[dev-dependencies]
+criterion = "0.5"
+tempfile = "3.8"
+
+[features]
+default = []
+cli = ["clap", "colored"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

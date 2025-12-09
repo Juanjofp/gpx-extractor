@@ -1,332 +1,261 @@
-# GPX Extractor
+# 🗺️ gpx-extractor
 
-Un extractor de datos GPX escrito en Rust.
+[![Crates.io](https://img.shields.io/crates/v/gpx-extractor.svg)](https://crates.io/crates/gpx-extractor)
+[![Documentation](https://docs.rs/gpx-extractor/badge.svg)](https://docs.rs/gpx-extractor)
+[![License](https://img.shields.io/crates/l/gpx-extractor.svg)](https://github.com/Juanjofp/gpx-extractor#license)
+[![Rust](https://img.shields.io/badge/rust-1.70%2B-blue.svg)](https://www.rust-lang.org)
 
-## 🗺️ Esquema de Estructura GPX
+A fast and ergonomic Rust library for parsing and building GPX (GPS Exchange Format) files.
 
-Este proyecto maneja archivos GPX (GPS Exchange Format) que se parsan desde XML. La estructura jerárquica del GPX es la siguiente:
+## ✨ Features
 
+- 🚀 **Fast parsing** - Efficient XML deserialization with `quick-xml` and `serde`
+- 🏗️ **Builder API** - Create GPX structures programmatically
+- 📊 **Statistics** - Calculate distances (Haversine), elevation gain/loss, and more
+- 🔄 **Roundtrip support** - Parse XML → Modify → Serialize back to XML
+- 🛡️ **Type-safe** - Strong typing with comprehensive error handling
+- 📦 **Zero-copy where possible** - Minimal allocations
+- 🎯 **Idiomatic Rust** - Clean API following Rust best practices
+
+## 🚀 Quick Start
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+gpx-extractor = "0.1"
 ```
-GPX
-├── Tracks (trk) - Rutas grabadas
-│   ├── Name - Nombre del track
-│   └── Track Segments (trkseg) - Segmentos continuos
-│       └── Track Points (trkpt) - Puntos individuales
-│           ├── @lat - Latitud
-│           ├── @lon - Longitud
-│           ├── ele - Elevación (opcional)
-│           └── time - Timestamp (opcional)
-└── Waypoints (wpt) - Puntos de interés
-    ├── @lat - Latitud
-    ├── @lon - Longitud
-    ├── name - Nombre del waypoint
-    ├── ele - Elevación (opcional)
-    └── time - Timestamp (opcional)
+
+## 📖 Usage Examples
+
+### Parse a GPX file
+
+```rust
+use gpx_extractor::Gpx;
+use std::convert::TryFrom;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let xml = std::fs::read_to_string("route.gpx")?;
+    let gpx = Gpx::try_from(xml.as_str())?;
+
+    println!("📊 Tracks: {}", gpx.tracks.len());
+    println!("📏 Distance: {:.2} km", gpx.total_distance_km());
+    
+    if let Some((min, max)) = gpx.elevation_range() {
+        println!("⛰️  Elevation: {:.1}m - {:.1}m", min, max);
+    }
+    
+    Ok(())
+}
 ```
 
-### 🔧 Funcionalidades Implementadas
-
-#### Parsing desde XML
-
-- ✅ **Deserialización automática** usando `serde` y `quick-xml`
-- ✅ **Manejo de errores** en caso de XML inválido
-- ✅ **Soporte completo** para tracks, segmentos, puntos y waypoints
-
-#### Análisis de Datos
-
-- ✅ **Cálculo de distancias** usando fórmula Haversine
-- ✅ **Estadísticas de elevación** (mín, máx, ganancia)
-- ✅ **Conteo de elementos** (tracks, segmentos, puntos, waypoints)
-- ✅ **Resumen automático** de contenido del GPX
-
-#### Operaciones de Construcción
-
-- ✅ **Creación programática** de estructuras GPX
-- ✅ **Adición de tracks y waypoints**
-- ✅ **Validación** de contenido vacío
-- ✅ **Nombres automáticos** para elementos sin nombre
-
-#### Serialización a XML
-
-- ✅ **Conversión GPX→XML** usando `quick-xml` y `serde`
-- ✅ **Múltiples interfaces** (`to_xml()`, `Display`, `Into<String>`)
-- ✅ **Guardado en archivo** con manejo de errores
-- ✅ **Roundtrip completo** (XML→GPX→XML)
-- ✅ **Manejo inteligente** de campos opcionales
-
-#### Utilidades Geográficas
-
-- ✅ **Distancia entre puntos** (algoritmo Haversine)
-- ✅ **Agregación de distancias** por segmento y track
-- ✅ **Análisis de elevación** con rangos y ganancias
-
-### 📊 Ejemplo de Uso
+### Build a GPX from scratch
 
 ```rust
 use gpx_extractor::{Gpx, Track, TrackSegment, Point, Waypoint};
-use std::convert::TryFrom;
 
-// Método 1: Usando try_from_str (método específico)
-let gpx = match Gpx::try_from_str(xml_content) {
-    Ok(gpx) => gpx,
-    Err(e) => {
-        eprintln!("Error parsing GPX: {}", e);
-        return;
-    }
-};
-
-// Método 2: Usando TryFrom trait (más idiomático en Rust)
-let gpx = match Gpx::try_from(xml_content) {
-    Ok(gpx) => gpx,
-    Err(e) => {
-        eprintln!("Error parsing GPX: {}", e);
-        return;
-    }
-};
-
-// Obtener estadísticas
-let stats = gpx.statistics();
-println!("Distancia total: {:.2} km", stats.total_distance_km);
-println!("Puntos: {}", stats.total_points);
-
-// Crear programáticamente
 let mut gpx = Gpx::new();
-let mut track = Track::with_name("Mi Ruta".to_string());
+
+// Create a track
+let mut track = Track::with_name("Morning Run".to_string());
 let segment = TrackSegment::with_points(vec![
     Point::with_elevation(40.7128, -74.0060, 10.0),
     Point::with_elevation(40.7589, -73.9851, 15.0),
 ]);
 track.add_segment(segment);
 gpx.add_track(track);
-gpx.add_waypoint(Waypoint::with_name(40.7128, -74.0060, "NYC".to_string()));
 
-// Convertir a XML (múltiples formas)
-let xml_string = gpx.to_xml();           // Método directo
-let xml_display = format!("{}", gpx);    // Usando Display trait
-let xml_into: String = gpx.into();       // Usando Into<String>
+// Add waypoints
+gpx.add_waypoint(Waypoint::with_name(
+    40.7128, -74.0060, "Start".to_string()
+));
 
-// Guardar en archivo
-gpx.save_to_file("mi_ruta.gpx").expect("Error guardando archivo");
-
-// Roundtrip: XML → GPX → XML
-let reparsed_gpx = Gpx::try_from_str(&xml_string).expect("Error en roundtrip");
-assert_eq!(gpx.total_points(), reparsed_gpx.total_points());
+// Save to file
+gpx.save_to_file("output.gpx")?;
 ```
 
-### 🚀 Ejecutar Ejemplo
-
-```bash
-# Ejecutar demo de conversión GPX→XML
-cargo run --example gpx_to_xml_demo
-```
-
-## ⚠️ Manejo de Errores
-
-La librería proporciona dos métodos idiomáticos para manejo de errores explícito:
-
-### Método 1: `try_from_str` (método específico)
+### Using the prelude
 
 ```rust
-match Gpx::try_from_str(xml_content) {
-    Ok(gpx) => {
-        println!("GPX cargado correctamente con {} tracks", gpx.tracks.len());
-        // Procesar el GPX...
-    },
-    Err(e) => {
-        eprintln!("Error parsing GPX: {}", e);
-        // Manejar el error apropiadamente
-    }
-}
+use gpx_extractor::prelude::*;
+
+let gpx = Gpx::new();
+let point = Point::new(40.7128, -74.0060);
+let stats = gpx.statistics();
 ```
 
-### Método 2: `TryFrom` trait (más idiomático)
+## 🗺️ GPX Structure
 
+```
+GPX
+├── Metadata (optional)
+│   └── time - Timestamp
+├── Tracks (trk) - Recorded routes
+│   ├── Name - Track name
+│   └── Track Segments (trkseg) - Continuous segments
+│       └── Track Points (trkpt) - Individual points
+│           ├── @lat - Latitude
+│           ├── @lon - Longitude
+│           ├── ele - Elevation (optional)
+│           └── time - Timestamp (optional)
+└── Waypoints (wpt) - Points of interest
+    ├── @lat - Latitude
+    ├── @lon - Longitude
+    ├── name - Waypoint name (optional)
+    └── time - Timestamp (optional)
+```
+
+## 🔧 API Overview
+
+### Core Types
+
+- **`Gpx`** - Main container for GPX data
+- **`Track`** - A GPS track (collection of segments)
+- **`TrackSegment`** - A continuous part of a track
+- **`Point`** - A geographic point (lat, lon, optional elevation)
+- **`Waypoint`** - A named point of interest
+- **`GpxStatistics`** - Computed statistics for a GPX
+
+### Key Methods
+
+#### Parsing
 ```rust
-use std::convert::TryFrom;
-
-match Gpx::try_from(xml_content) {
-    Ok(gpx) => {
-        println!("GPX cargado correctamente con {} tracks", gpx.tracks.len());
-        // Procesar el GPX...
-    },
-    Err(e) => {
-        eprintln!("Error parsing GPX: {}", e);
-        // Manejar el error apropiadamente
-    }
-}
-
-// También funciona con el operador ?
-fn load_gpx(xml: &str) -> Result<Gpx, quick_xml::DeError> {
-    let gpx = Gpx::try_from(xml)?;
-    Ok(gpx)
-}
+Gpx::try_from(xml: &str) -> Result<Gpx, ParseError>
+Gpx::try_from_str(xml: &str) -> Result<Gpx, ParseError>
 ```
 
-### Beneficios del Manejo Explícito de Errores
-
-- **🔒 Seguridad:** No hay métodos que silenciosamente devuelvan estructuras vacías
-- **🐛 Depuración:** Los errores contienen información específica sobre qué falló
-- **🎯 Precisión:** El llamador siempre sabe si el parsing fue exitoso o no
-- **📊 Monitoreo:** Puedes registrar, contar y manejar errores de parsing apropiadamente
-
+#### Statistics
 ```rust
-// ❌ Antes: No sabías si el GPX estaba realmente vacío o hubo un error
-let gpx = Gpx::from(possibly_invalid_xml);
-if gpx.is_empty() {
-    // ¿Era un GPX vacío válido o un error de parsing?
-}
-
-// ✅ Ahora: Manejo explícito y claro
-use std::convert::TryFrom;
-
-match Gpx::try_from(xml_content) {
-    Ok(gpx) if gpx.is_empty() => println!("GPX válido pero vacío"),
-    Ok(gpx) => println!("GPX cargado con {} tracks", gpx.tracks.len()),
-    Err(e) => {
-        log::error!("Error parsing GPX: {}", e);
-        // Manejar error apropiadamente
-    }
-}
+gpx.total_distance_km() -> f64
+gpx.elevation_range() -> Option<(f64, f64)>
+gpx.total_elevation_gain() -> Option<f64>
+gpx.total_elevation_loss() -> Option<f64>
+gpx.statistics() -> GpxStatistics
 ```
 
-### 💡 Mejores Prácticas
-
-#### Cuándo usar cada método:
-
-- **`try_from_str()`**: Cuando quieres ser explícito sobre el parsing de strings
-- **`TryFrom` trait**: Más idiomático, funciona bien con genéricos y permite usar el operador `?`
-
+#### Serialization
 ```rust
-use std::convert::TryFrom;
-
-// ✅ Excelente para manejo de errores con ?
-fn process_gpx_file(path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let content = std::fs::read_to_string(path)?;
-    let gpx = Gpx::try_from(content.as_str())?;
-
-    println!("Procesando GPX con {} tracks", gpx.tracks.len());
-    Ok(())
-}
-
-// ✅ Funciona bien con código genérico
-fn parse_from_string<T>(s: &str) -> Result<T, T::Error>
-where
-    T: TryFrom<&str>,
-{
-    T::try_from(s)
-}
-
-let gpx: Gpx = parse_from_string(xml_content)?;
+gpx.to_xml() -> String
+gpx.save_to_file(path: &str) -> Result<(), Box<dyn Error>>
 ```
 
-## 📋 Configuración de Desarrollo
+## 📦 Optional Features
 
-Este proyecto está configurado con herramientas de calidad de código para mantener un estilo consistente y detectar problemas automáticamente.
+### CLI Tool
 
-### 🛠️ Herramientas Configuradas
-
-- **rustfmt** - Formateo automático de código
-- **Clippy** - Linter para detectar problemas y mejores prácticas
-- **cargo-audit** - Verificación de vulnerabilidades de seguridad
-
-### 🎨 Formateo de Código
-
-#### Configuración Básica (Estable)
+Install the command-line interface:
 
 ```bash
-# Formatear todo el proyecto
-cargo fmt
-
-# O usar el script de desarrollo
-./dev.sh fmt
+cargo install gpx-extractor --features cli
 ```
 
-#### Configuración Avanzada (Nightly)
-
-Para características avanzadas de formateo, instala rustfmt nightly:
+Usage:
 
 ```bash
-# Instalar rustfmt nightly
-rustup toolchain install nightly
-rustup component add rustfmt --toolchain nightly
+# Analyze a single GPX file
+gpx-cli route.gpx
 
-# Usar formateo avanzado
-./dev.sh fmt-nightly
+# Analyze all GPX files in a directory
+gpx-cli ./gpx_files/
+
+# Show detailed statistics
+gpx-cli route.gpx --verbose
+
+# Sort files by date
+gpx-cli ./gpx_files/ --sort
 ```
 
-### 🔍 Análisis de Código
+Enable in `Cargo.toml`:
 
-```bash
-# Ejecutar clippy
-cargo clippy -- -W clippy::all
-
-# O usar el script
-./dev.sh clippy
-
-# Auto-fix automático (cuando sea posible)
-./dev.sh clippy-fix
+```toml
+[dependencies]
+gpx-extractor = { version = "0.1", features = ["cli"] }
 ```
 
-### 🔒 Auditoría de Seguridad
+## 📚 Examples
+
+The repository includes several examples:
+
+- [`parse_gpx.rs`](examples/parse_gpx.rs) - Parse and analyze GPX files
+- [`create_gpx.rs`](examples/create_gpx.rs) - Build GPX from scratch
+- [`gpx_to_xml_demo.rs`](examples/gpx_to_xml_demo.rs) - XML conversion demo
+
+Run examples with:
 
 ```bash
-# Verificar vulnerabilidades
-cargo audit
-
-# O usar el script
-./dev.sh audit
+cargo run --example parse_gpx
+cargo run --example create_gpx
 ```
 
-### 🚀 Script de Desarrollo
+## 🏗️ Project Structure
 
-El archivo `dev.sh` incluye comandos útiles para desarrollo:
-
-```bash
-./dev.sh help           # Mostrar ayuda
-./dev.sh fmt            # Formatear código
-./dev.sh clippy         # Ejecutar clippy
-./dev.sh check          # Verificar compilación
-./dev.sh test           # Ejecutar tests
-./dev.sh audit          # Verificar vulnerabilidades
-./dev.sh all            # Ejecutar todas las verificaciones
+```
+gpx-extractor/
+├── src/
+│   ├── lib.rs              # Public API and documentation
+│   ├── bin/
+│   │   └── gpx-cli.rs      # Optional CLI tool
+│   └── gpx/
+│       ├── mod.rs          # Module declarations
+│       ├── gpx.rs          # Main Gpx struct
+│       ├── point.rs        # Point struct
+│       ├── track.rs        # Track & TrackSegment
+│       └── waypoint.rs     # Waypoint struct
+├── examples/               # Usage examples
+├── tests/                  # Integration tests
+└── benches/                # Benchmarks
 ```
 
-### 📁 Archivos de Configuración
-
-- `rustfmt.toml` - Configuración de formateo para versión estable
-- `rustfmt-nightly.toml` - Configuración avanzada para nightly
-- `clippy.toml` - Configuración de reglas de Clippy
-- `.vscode/settings.json` - Configuración de VS Code para el proyecto
-
-### ⚙️ Configuración en VS Code
-
-El proyecto incluye configuración simple y efectiva para VS Code:
-
-- ✅ Formateo automático al guardar
-- ✅ Detección de errores y warnings en tiempo real
-- ✅ Configuración minimalista y fácil de replicar
-- ✅ Análisis básico de código integrado
-
-## 🏗️ Compilación y Ejecución
+## 🧪 Testing
 
 ```bash
-# Compilar
-cargo build
-
-# Ejecutar
-cargo run <archivo.gpx>
-
-# Ejecutar tests
+# Run all tests
 cargo test
+
+# Run with output
+cargo test -- --nocapture
+
+# Run benchmarks
+cargo bench
 ```
 
-## 📝 Estilo de Código
+## 📊 Benchmarks
 
-Este proyecto sigue las convenciones estándar de Rust con algunas personalizaciones:
+```bash
+cargo bench
+```
 
-- **Ancho máximo de línea**: 100 caracteres
-- **Indentación**: 4 espacios
-- **Imports**: Organizados automáticamente
-- **Reordenamiento**: Los imports se reorganizan automáticamente
+## 🤝 Contributing
 
-Para mantener la consistencia, por favor ejecuta `cargo fmt` antes de hacer commits.
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is dual-licensed under:
+
+- MIT License ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+
+You may choose either license for your use.
+
+## 🙏 Acknowledgments
+
+- Built with [quick-xml](https://github.com/tafia/quick-xml) for efficient XML parsing
+- Uses [serde](https://serde.rs/) for serialization/deserialization
+- Distance calculations use the Haversine formula
+
+## 📮 Support
+
+- 📖 [Documentation](https://docs.rs/gpx-extractor)
+- 🐛 [Issue Tracker](https://github.com/Juanjofp/gpx-extractor/issues)
+- 💬 [Discussions](https://github.com/Juanjofp/gpx-extractor/discussions)
+
+---
+
+Made with ❤️ by [Juanjo](https://github.com/Juanjofp)
