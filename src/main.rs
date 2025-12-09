@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .filter_map(|entry| match entry {
             Ok(dir_entry) => {
                 let path = dir_entry.path();
-                if path.extension().map_or(false, |ext| ext == "gpx") {
+                if path.extension().is_some_and(|ext| ext == "gpx") {
                     Some(Ok(path))
                 } else {
                     None

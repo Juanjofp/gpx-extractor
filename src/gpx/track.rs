@@ -1,8 +1,13 @@
-use crate::gpx::point::{Point, haversine_distance};
+use crate::gpx::point::{haversine_distance, Point};
 use serde::{Deserialize, Serialize};
 
+/// A continuous segment of a GPS track
+///
+/// Tracks are divided into segments to represent continuous sections.
+/// A break in recording (e.g., GPS turned off) starts a new segment.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TrackSegment {
+    /// Sequential points that make up this segment
     #[serde(rename = "trkpt", default)]
     pub points: Vec<Point>,
 }
@@ -63,10 +68,16 @@ impl Default for TrackSegment {
     }
 }
 
+/// A GPS track representing a recorded route
+///
+/// A track consists of one or more segments, each containing sequential points.
+/// Tracks typically represent activities like runs, bike rides, or hikes.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Track {
+    /// Optional name describing the track
     #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// Track segments making up this track
     #[serde(rename = "trkseg", default)]
     pub segments: Vec<TrackSegment>,
 }

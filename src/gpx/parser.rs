@@ -226,15 +226,19 @@ impl Gpx {
         };
 
         match to_string(&gpx_root) {
-            Ok(xml) => format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n{}", xml),
+            Ok(xml) => format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n{xml}"),
             Err(e) => {
-                eprintln!("Error serializing GPX to XML: {}", e);
+                eprintln!("Error serializing GPX to XML: {e}");
                 String::new()
             }
         }
     }
 
-    /// Guarda el GPX en un archivo
+    /// Saves the GPX to a file
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be written
     pub fn save_to_file(&self, path: &str) -> Result<(), std::io::Error> {
         use std::fs;
         fs::write(path, self.to_xml())
@@ -253,20 +257,24 @@ impl fmt::Display for Gpx {
     }
 }
 
-impl Into<String> for Gpx {
-    fn into(self) -> String {
-        self.to_xml()
+impl From<Gpx> for String {
+    fn from(val: Gpx) -> Self {
+        val.to_xml()
     }
 }
 
-impl Into<String> for &Gpx {
-    fn into(self) -> String {
-        self.to_xml()
+impl From<&Gpx> for String {
+    fn from(val: &Gpx) -> Self {
+        val.to_xml()
     }
 }
 
 impl Gpx {
-    /// Intenta crear un GPX desde un string XML, devolviendo un Result
+    /// Attempts to create a GPX from an XML string
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the XML string cannot be parsed into a valid GPX structure
     pub fn try_from_str(s: &str) -> Result<Self, quick_xml::DeError> {
         let gpx_root = from_str::<GpxRoot>(s)?;
         Ok(Gpx {
@@ -331,18 +339,21 @@ impl GpxStatistics {
         );
 
         if let Some((min_ele, max_ele)) = self.elevation_range {
-            summary.push_str(&format!(
-                "\n- Elevation range: {:.1}m - {:.1}m",
-                min_ele, max_ele
-            ));
+            use std::fmt::Write;
+            let _ = write!(
+                &mut summary,
+                "\n- Elevation range: {min_ele:.1}m - {max_ele:.1}m"
+            );
         }
 
         if let Some(gain) = self.elevation_gain {
-            summary.push_str(&format!("\n- Elevation gain: {:.1}m", gain));
+            use std::fmt::Write;
+            let _ = write!(&mut summary, "\n- Elevation gain: {gain:.1}m");
         }
 
         if let Some(loss) = self.elevation_loss {
-            summary.push_str(&format!("\n- Elevation loss: {:.1}m", loss));
+            use std::fmt::Write;
+            let _ = write!(&mut summary, "\n- Elevation loss: {loss:.1}m");
         }
 
         summary

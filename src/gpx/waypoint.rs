@@ -1,16 +1,25 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// A waypoint representing a point of interest
+///
+/// Waypoints mark specific locations such as destinations, landmarks,
+/// or important points along a route.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Waypoint {
+    /// Latitude in decimal degrees (WGS84)
     #[serde(rename = "@lat")]
     pub lat: f64,
+    /// Longitude in decimal degrees (WGS84)
     #[serde(rename = "@lon")]
     pub lon: f64,
+    /// Optional name describing the waypoint
     #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// Elevation in meters above sea level
     #[serde(rename = "ele", skip_serializing_if = "Option::is_none")]
     pub elevation: Option<f64>,
+    /// Timestamp of when the waypoint was created
     #[serde(rename = "time", skip_serializing_if = "Option::is_none")]
     pub time: Option<DateTime<Utc>>,
 }
@@ -82,11 +91,17 @@ impl Waypoint {
         );
 
         if let Some(elevation) = self.elevation {
-            desc.push_str(&format!(", elevation: {:.1}m", elevation));
+            use std::fmt::Write;
+            let _ = write!(&mut desc, ", elevation: {elevation:.1}m");
         }
 
         if let Some(time) = self.time {
-            desc.push_str(&format!(", time: {}", time.format("%Y-%m-%d %H:%M:%S UTC")));
+            use std::fmt::Write;
+            let _ = write!(
+                &mut desc,
+                ", time: {}",
+                time.format("%Y-%m-%d %H:%M:%S UTC")
+            );
         }
 
         desc

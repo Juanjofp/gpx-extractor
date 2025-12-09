@@ -1,14 +1,21 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// A geographic point with latitude, longitude, and optional elevation and timestamp
+///
+/// Represents a single point in a GPS track or a waypoint location.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Point {
+    /// Latitude in decimal degrees (WGS84)
     #[serde(rename = "@lat")]
     pub lat: f64,
+    /// Longitude in decimal degrees (WGS84)
     #[serde(rename = "@lon")]
     pub lon: f64,
+    /// Elevation in meters above sea level
     #[serde(rename = "ele", skip_serializing_if = "Option::is_none")]
     pub elevation: Option<f64>,
+    /// Timestamp of when the point was recorded
     #[serde(rename = "time", skip_serializing_if = "Option::is_none")]
     pub time: Option<DateTime<Utc>>,
 }
