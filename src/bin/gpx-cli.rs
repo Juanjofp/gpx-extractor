@@ -144,6 +144,7 @@ fn print_gpx_info(gpx: &Gpx, verbose: bool) {
     if let Some(date) = gpx.date() {
         println!("{}", format!("📅 Date: {}", date).cyan());
     }
+
     println!("📊 Tracks: {}", gpx.tracks.len());
     println!("📍 Waypoints: {}", gpx.waypoints.len());
     println!("🔢 Total points: {}", gpx.total_points());
@@ -159,6 +160,18 @@ fn print_gpx_info(gpx: &Gpx, verbose: bool) {
                 track.total_points()
             );
         }
+    }
+
+    if let Some(formatted) = gpx.total_duration_formatted() {
+        println!("⏱️  Total duration: {}", formatted);
+    } else {
+        println!("⏱️  No time information available");
+    }
+
+    if let Some(avg_speed) = gpx.average_speed_kmh() {
+        println!("🚴 Average speed: {:.2} km/h", avg_speed);
+    } else {
+        println!("🚴 Cannot calculate average speed");
     }
 
     let distance = gpx.total_distance_km();

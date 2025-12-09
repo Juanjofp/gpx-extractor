@@ -170,6 +170,49 @@ impl Gpx {
         self.tracks.iter().map(|track| track.segments.len()).sum()
     }
 
+    /// Calcula la duración total de la ruta basándose en los timestamps de los puntos
+    /// Devuelve la duración en segundos entre el primer y último punto con timestamp
+    pub fn total_duration_seconds(&self) -> Option<i64> {
+        let points = self.get_all_points();
+
+        let times: Vec<chrono::DateTime<chrono::Utc>> = points
+            .iter()
+            .filter_map(|p| p.time.as_ref().copied())
+            .collect();
+
+        if times.is_empty() {
+            return None;
+        }
+
+        let min_time = times.iter().min()?;
+        let max_time = times.iter().max()?;
+
+        Some((*max_time - *min_time).num_seconds())
+    }
+
+    /// Calcula la duración total en formato legible (horas:minutos:segundos)
+    pub fn total_duration_formatted(&self) -> Option<String> {
+        let total_seconds = self.total_duration_seconds()?;
+        let hours = total_seconds / 3600;
+        let minutes = (total_seconds % 3600) / 60;
+        let seconds = total_seconds % 60;
+
+        Some(format!("{:02}:{:02}:{:02}", hours, minutes, seconds))
+    }
+
+    /// Calcula la velocidad media en km/h si hay distancia y duración
+    pub fn average_speed_kmh(&self) -> Option<f64> {
+        let distance_km = self.total_distance_km();
+        let duration_seconds = self.total_duration_seconds()?;
+
+        if duration_seconds == 0 {
+            return None;
+        }
+
+        let duration_hours = duration_seconds as f64 / 3600.0;
+        Some(distance_km / duration_hours)
+    }
+
     /// Obtiene estadísticas completas del GPX
     pub fn statistics(&self) -> GpxStatistics {
         GpxStatistics {
@@ -181,6 +224,8 @@ impl Gpx {
             elevation_range: self.elevation_range(),
             elevation_gain: self.total_elevation_gain(),
             elevation_loss: self.total_elevation_loss(),
+            duration_seconds: self.total_duration_seconds(),
+            average_speed_kmh: self.average_speed_kmh(),
         }
     }
 
@@ -306,12 +351,26 @@ pub struct GpxStatistics {
     pub elevation_gain: Option<f64>,
     /// Total elevation loss in meters, if available
     pub elevation_loss: Option<f64>,
+    /// Total duration in seconds, if timestamps are available
+    pub duration_seconds: Option<i64>,
+    /// Average speed in km/h, if distance and duration are available
+    pub average_speed_kmh: Option<f64>,
 }
 
 impl GpxStatistics {
     /// Calcula la ganancia de elevación (diferencia min-max)
     pub fn elevation_difference(&self) -> Option<f64> {
         self.elevation_range.map(|(min, max)| max - min)
+    }
+
+    /// Obtiene la duración en formato legible
+    pub fn duration_formatted(&self) -> Option<String> {
+        let total_seconds = self.duration_seconds?;
+        let hours = total_seconds / 3600;
+        let minutes = (total_seconds % 3600) / 60;
+        let seconds = total_seconds % 60;
+
+        Some(format!("{:02}:{:02}:{:02}", hours, minutes, seconds))
     }
 
     /// Obtiene una descripción legible de las estadísticas
@@ -329,6 +388,14 @@ impl GpxStatistics {
             self.total_points,
             self.total_distance_km
         );
+
+        if let Some(duration) = self.duration_formatted() {
+            summary.push_str(&format!("\n- Duration: {}", duration));
+        }
+
+        if let Some(speed) = self.average_speed_kmh {
+            summary.push_str(&format!("\n- Average speed: {:.2} km/h", speed));
+        }
 
         if let Some((min_ele, max_ele)) = self.elevation_range {
             summary.push_str(&format!(
@@ -356,6 +423,7 @@ mod tests {
         point::Point,
         track::{Track, TrackSegment},
     };
+    use chrono::TimeZone;
 
     #[test]
     fn test_gpx_new() {
@@ -526,12 +594,16 @@ mod tests {
             elevation_range: Some((100.0, 300.0)),
             elevation_gain: Some(200.0),
             elevation_loss: Some(50.0),
+            duration_seconds: Some(7200),
+            average_speed_kmh: Some(12.75),
         };
 
         let summary = stats.summary();
         assert!(summary.contains("Tracks: 2"));
         assert!(summary.contains("Waypoints: 3"));
         assert!(summary.contains("Distance: 25.50 km"));
+        assert!(summary.contains("Duration: 02:00:00"));
+        assert!(summary.contains("Average speed: 12.75 km/h"));
         assert!(summary.contains("gain: 200.0m"));
         assert!(summary.contains("loss: 50.0m"));
     }
@@ -683,5 +755,123 @@ mod tests {
         let gpx = Gpx::try_from_str(xml).unwrap();
         assert!(gpx.metadata.is_some());
         assert_eq!(gpx.date(), None);
+    }
+
+    #[test]
+    fn test_gpx_duration_calculation() {
+        let mut gpx = Gpx::new();
+        let mut track = Track::with_name("Test Track".to_string());
+
+        let time1 = chrono::Utc.with_ymd_and_hms(2024, 7, 11, 10, 0, 0).unwrap();
+        let time2 = chrono::Utc
+            .with_ymd_and_hms(2024, 7, 11, 12, 30, 45)
+            .unwrap();
+
+        let segment = TrackSegment::with_points(vec![
+            Point::with_time(40.7128, -74.0060, Some(10.0), time1),
+            Point::with_time(40.7589, -73.9851, Some(15.0), time2),
+        ]);
+
+        track.add_segment(segment);
+        gpx.add_track(track);
+
+        let duration = gpx.total_duration_seconds();
+        assert_eq!(duration, Some(9045)); // 2h 30m 45s = 9045 seconds
+
+        let formatted = gpx.total_duration_formatted();
+        assert_eq!(formatted, Some("02:30:45".to_string()));
+    }
+
+    #[test]
+    fn test_gpx_duration_without_time() {
+        let mut gpx = Gpx::new();
+        let mut track = Track::with_name("Test Track".to_string());
+        let segment = TrackSegment::with_points(vec![
+            Point::new(40.7128, -74.0060),
+            Point::new(40.7589, -73.9851),
+        ]);
+        track.add_segment(segment);
+        gpx.add_track(track);
+
+        assert_eq!(gpx.total_duration_seconds(), None);
+        assert_eq!(gpx.total_duration_formatted(), None);
+    }
+
+    #[test]
+    fn test_gpx_average_speed() {
+        let mut gpx = Gpx::new();
+        let mut track = Track::with_name("Test Track".to_string());
+
+        let time1 = chrono::Utc.with_ymd_and_hms(2024, 7, 11, 10, 0, 0).unwrap();
+        let time2 = chrono::Utc.with_ymd_and_hms(2024, 7, 11, 11, 0, 0).unwrap();
+
+        let segment = TrackSegment::with_points(vec![
+            Point::with_time(40.7128, -74.0060, Some(10.0), time1),
+            Point::with_time(40.7589, -73.9851, Some(15.0), time2),
+        ]);
+
+        track.add_segment(segment);
+        gpx.add_track(track);
+
+        let speed = gpx.average_speed_kmh();
+        assert!(speed.is_some());
+        assert!(speed.unwrap() > 0.0);
+    }
+
+    #[test]
+    fn test_gpx_average_speed_without_duration() {
+        let mut gpx = Gpx::new();
+        let mut track = Track::with_name("Test Track".to_string());
+        let segment = TrackSegment::with_points(vec![
+            Point::new(40.7128, -74.0060),
+            Point::new(40.7589, -73.9851),
+        ]);
+        track.add_segment(segment);
+        gpx.add_track(track);
+
+        assert_eq!(gpx.average_speed_kmh(), None);
+    }
+
+    #[test]
+    fn test_statistics_with_duration() {
+        let mut gpx = Gpx::new();
+        let mut track = Track::with_name("Test Track".to_string());
+
+        let time1 = chrono::Utc.with_ymd_and_hms(2024, 7, 11, 10, 0, 0).unwrap();
+        let time2 = chrono::Utc.with_ymd_and_hms(2024, 7, 11, 12, 0, 0).unwrap();
+
+        let segment = TrackSegment::with_points(vec![
+            Point::with_time(40.7128, -74.0060, Some(10.0), time1),
+            Point::with_time(40.7589, -73.9851, Some(20.0), time2),
+        ]);
+
+        track.add_segment(segment);
+        gpx.add_track(track);
+
+        let stats = gpx.statistics();
+        assert!(stats.duration_seconds.is_some());
+        assert!(stats.average_speed_kmh.is_some());
+
+        let summary = stats.summary();
+        assert!(summary.contains("Duration:"));
+        assert!(summary.contains("Average speed:"));
+    }
+
+    #[test]
+    fn test_gpx_average_speed_zero_duration() {
+        let mut gpx = Gpx::new();
+        let mut track = Track::with_name("Test Track".to_string());
+
+        let time1 = chrono::Utc.with_ymd_and_hms(2024, 7, 11, 10, 0, 0).unwrap();
+
+        let segment = TrackSegment::with_points(vec![
+            Point::with_time(40.7128, -74.0060, Some(10.0), time1),
+            Point::with_time(40.7589, -73.9851, Some(15.0), time1), // Same time
+        ]);
+
+        track.add_segment(segment);
+        gpx.add_track(track);
+
+        assert_eq!(gpx.average_speed_kmh(), None); // Should handle zero duration
     }
 }

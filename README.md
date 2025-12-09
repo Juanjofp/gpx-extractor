@@ -11,7 +11,7 @@ A fast and ergonomic Rust library for parsing and building GPX (GPS Exchange For
 
 - 🚀 **Fast parsing** - Efficient XML deserialization with `quick-xml` and `serde`
 - 🏗️ **Builder API** - Create GPX structures programmatically
-- 📊 **Statistics** - Calculate distances (Haversine), elevation gain/loss, and more
+- 📊 **Statistics** - Calculate distances (Haversine), duration, speed, elevation gain/loss, and more
 - 🔄 **Roundtrip support** - Parse XML → Modify → Serialize back to XML
 - 🛡️ **Type-safe** - Strong typing with comprehensive error handling
 - 📦 **Zero-copy where possible** - Minimal allocations
@@ -40,11 +40,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("📊 Tracks: {}", gpx.tracks.len());
     println!("📏 Distance: {:.2} km", gpx.total_distance_km());
-    
+
+    // Duration and speed (if timestamps are available)
+    if let Some(duration) = gpx.total_duration_formatted() {
+        println!("⏱️  Duration: {}", duration);
+    }
+
+    if let Some(speed) = gpx.average_speed_kmh() {
+        println!("🚴 Average speed: {:.2} km/h", speed);
+    }
+
     if let Some((min, max)) = gpx.elevation_range() {
         println!("⛰️  Elevation: {:.1}m - {:.1}m", min, max);
     }
-    
+
     Ok(())
 }
 ```
@@ -119,14 +128,19 @@ GPX
 ### Key Methods
 
 #### Parsing
+
 ```rust
 Gpx::try_from(xml: &str) -> Result<Gpx, ParseError>
 Gpx::try_from_str(xml: &str) -> Result<Gpx, ParseError>
 ```
 
 #### Statistics
+
 ```rust
 gpx.total_distance_km() -> f64
+gpx.total_duration_seconds() -> Option<i64>
+gpx.total_duration_formatted() -> Option<String>  // Format: HH:MM:SS
+gpx.average_speed_kmh() -> Option<f64>
 gpx.elevation_range() -> Option<(f64, f64)>
 gpx.total_elevation_gain() -> Option<f64>
 gpx.total_elevation_loss() -> Option<f64>
@@ -134,6 +148,7 @@ gpx.statistics() -> GpxStatistics
 ```
 
 #### Serialization
+
 ```rust
 gpx.to_xml() -> String
 gpx.save_to_file(path: &str) -> Result<(), Box<dyn Error>>
@@ -179,12 +194,16 @@ The repository includes several examples:
 - [`parse_gpx.rs`](examples/parse_gpx.rs) - Parse and analyze GPX files
 - [`create_gpx.rs`](examples/create_gpx.rs) - Build GPX from scratch
 - [`gpx_to_xml_demo.rs`](examples/gpx_to_xml_demo.rs) - XML conversion demo
+- [`duration_stats.rs`](examples/duration_stats.rs) - Calculate duration and average speed
+- [`analyze_gpx_file.rs`](examples/analyze_gpx_file.rs) - Complete GPX file analysis
 
 Run examples with:
 
 ```bash
 cargo run --example parse_gpx
 cargo run --example create_gpx
+cargo run --example duration_stats
+cargo run --example analyze_gpx_file
 ```
 
 ## 🏗️ Project Structure
